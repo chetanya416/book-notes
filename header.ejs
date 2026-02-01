@@ -1,0 +1,20 @@
+<header class="header">
+  <div class="header-left">
+    <h1 class="logo">📚 Book Notes</h1>
+  </div>
+
+  <div class="header-right">
+    <form class="sort-form" action="/" method="get">
+      <select name="sort" onchange="this.form.submit()">
+        <option value="date_new" <%= sort === "date_new" ? "selected" : "" %>>Date: Latest First</option>
+        <option value="date_old" <%= sort === "date_old" ? "selected" : "" %>>Date: Oldest First</option>
+        <option value="rating_high" <%= sort === "rating_high" ? "selected" : "" %>>Rating: High to Low</option>
+        <option value="rating_low" <%= sort === "rating_low" ? "selected" : "" %>>Rating: Low to High</option>
+      </select>
+    </form>
+
+    <button class="btn btn-primary" id="newNoteBtn" type="button">
+      + Write a New Note
+    </button>
+  </div>
+</header>

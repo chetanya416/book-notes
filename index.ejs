@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Notes</title>
+  <link rel="stylesheet" href="/styles/main.css" />
+</head>
+
+<body class="page">
+
+  <%- include("partials/header.ejs") %>
+
+  <main class="container">
+
+    <% if (locals.error) { %>
+      <p class="error-msg"><%= error %></p>
+    <% } %>
+
+    <!-- HIDDEN NEW NOTE FORM -->
+    <section class="new-note-box hidden" id="newNoteBox">
+
+      <h2>Write a New Note</h2>
+
+      <div class="search-area">
+        <label>Search Book Title</label>
+        <input type="text" id="searchInput" placeholder="Type book title..." autocomplete="off" />
+
+        <div class="suggestions hidden" id="suggestionsBox"></div>
+      </div>
+
+      <form action="/add" method="post" class="new-note-form">
+
+        <input type="hidden" name="cover_id" id="coverIdInput" value="" />
+
+        <div class="form-row">
+          <div class="cover-preview">
+            <img src="/images/placeholder-cover.jpg" id="coverPreview" alt="Cover Preview" />
+          </div>
+
+          <div class="form-fields">
+            <label>Title</label>
+            <input type="text" name="title" id="titleInput" placeholder="Book title" required />
+
+            <label>Author</label>
+            <input type="text" name="author" id="authorInput" placeholder="Author name" required />
+
+            <label>Date Read</label>
+            <input type="date" name="date_read" required />
+
+            <label>Rating (1 to 10)</label>
+            <input type="number" name="rating" min="1" max="10" placeholder="Give rating" required />
+
+            <label>Note</label>
+            <textarea name="notes" rows="5" placeholder="Write your note..."></textarea>
+
+            <div class="btn-row">
+              <button type="submit" class="btn btn-primary">Save Note</button>
+              <button type="button" class="btn btn-secondary" id="closeNoteBtn">Close</button>
+            </div>
+          </div>
+        </div>
+
+      </form>
+
+    </section>
+
+    <!-- TOP RATED MOST RECENT BOOK -->
+    <section class="top-book-card">
+      <h2>⭐ Top Rated (Most Recent)</h2>
+
+      <% if (topBook) { %>
+        <div class="top-book-content">
+          <div class="top-book-cover">
+            <img src="/images/placeholder-cover.jpg" alt="Top Book Cover" id="topBookCover" />
+          </div>
+
+          <div class="top-book-info">
+            <h3><%= topBook.title %></h3>
+            <p>by <%= topBook.author %></p>
+            <p><b>Rating:</b> <%= topBook.rating %>/10</p>
+            <p><b>Date Read:</b> <%= topBook.date_read.toISOString().slice(0, 10) %></p>
+
+            <a class="btn btn-primary" href="/notes/<%= topBook.id %>">View Notes</a>
+          </div>
+        </div>
+      <% } else { %>
+        <p class="muted">No books added yet. Add your first note above 😄</p>
+      <% } %>
+    </section>
+
+    <!-- ALL BOOKS LIST -->
+    <section class="all-books-section">
+      <h2>📖 All Notes</h2>
+
+      <% if (books.length === 0) { %>
+        <p class="muted">No notes yet. Click <b>Write a New Note</b> to add one!</p>
+      <% } %>
+
+      <div class="books-grid">
+        <% books.forEach((book) => { %>
+          <div class="book-card">
+
+            <div class="book-cover">
+              <img src="/images/placeholder-cover.jpg" alt="Book Cover" class="bookCoverImg" data-title="<%= book.title %>" />
+            </div>
+
+            <div class="book-info">
+              <h3 class="book-title"><%= book.title %></h3>
+              <p class="book-author">by <%= book.author %></p>
+
+              <p class="book-meta">
+                <span><b>Rating:</b> <%= book.rating %>/10</span><br />
+                <span><b>Date:</b> <%= book.date_read.toISOString().slice(0, 10) %></span>
+              </p>
+
+              <p class="book-preview">
+                <%= book.notes && book.notes.length > 80 ? book.notes.slice(0, 80) + "..." : (book.notes ? book.notes : "No note written.") %>
+              </p>
+
+              <a class="btn btn-secondary" href="/notes/<%= book.id %>">View Notes</a>
+            </div>
+
+          </div>
+        <% }) %>
+      </div>
+
+    </section>
+
+  </main>
+
+  <%- include("partials/footer.ejs") %>
+
+  <script>
+    // Toggle New Note Form
+    const newNoteBtn = document.getElementById("newNoteBtn");
+    const newNoteBox = document.getElementById("newNoteBox");
+    const closeNoteBtn = document.getElementById("closeNoteBtn");
+
+    newNoteBtn.addEventListener("click", () => {
+      newNoteBox.classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    closeNoteBtn.addEventListener("click", () => {
+      newNoteBox.classList.add("hidden");
+    });
+
+    // Suggestions logic
+    const searchInput = document.getElementById("searchInput");
+    const suggestionsBox = document.getElementById("suggestionsBox");
+
+    const titleInput = document.getElementById("titleInput");
+    const authorInput = document.getElementById("authorInput");
+    const coverPreview = document.getElementById("coverPreview");
+    const coverIdInput = document.getElementById("coverIdInput");
+
+    let timeout = null;
+
+    function showSuggestions(list) {
+      suggestionsBox.innerHTML = "";
+
+      if (!list || list.length === 0) {
+        suggestionsBox.classList.add("hidden");
+        return;
+      }
+
+      suggestionsBox.classList.remove("hidden");
+
+      list.forEach((item) => {
+        const div = document.createElement("div");
+        div.classList.add("suggestion-item");
+
+        div.innerHTML = `
+          <b>${item.title}</b>
+          <span>${item.author ? " - " + item.author : ""}</span>
+        `;
+
+        div.addEventListener("click", () => {
+          // Fill fields
+          titleInput.value = item.title || "";
+          authorInput.value = item.author || "";
+
+          // If author missing, user can type manually
+          if (!item.author || item.author.trim().length === 0) {
+            authorInput.placeholder = "Author not found, enter manually";
+          }
+
+          // Cover
+          if (item.cover_i) {
+            coverPreview.src = "https://covers.openlibrary.org/b/id/" + item.cover_i + "-L.jpg";
+            coverIdInput.value = item.cover_i;
+          } else {
+            coverPreview.src = "/images/placeholder-cover.jpg";
+            coverIdInput.value = "";
+          }
+
+          suggestionsBox.classList.add("hidden");
+          searchInput.value = item.title;
+        });
+
+        suggestionsBox.appendChild(div);
+      });
+    }
+
+    searchInput.addEventListener("input", () => {
+      clearTimeout(timeout);
+
+      const q = searchInput.value.trim();
+
+      if (q.length < 2) {
+        suggestionsBox.classList.add("hidden");
+        return;
+      }
+
+      timeout = setTimeout(async () => {
+        try {
+          const res = await fetch("/search?q=" + encodeURIComponent(q));
+          const data = await res.json();
+          showSuggestions(data.suggestions);
+        } catch (err) {
+          console.log("Suggestion fetch error:", err);
+          suggestionsBox.classList.add("hidden");
+        }
+      }, 250);
+    });
+
+    // Hide suggestions if user clicks outside
+    document.addEventListener("click", (e) => {
+      if (!suggestionsBox.contains(e.target) && e.target !== searchInput) {
+        suggestionsBox.classList.add("hidden");
+      }
+    });
+
+    // Load covers for Top Book + All Books using title search
+    async function loadCoverByTitle(title, imgElement) {
+      try {
+        const res = await fetch("/search?q=" + encodeURIComponent(title));
+        const data = await res.json();
+
+        if (data.suggestions && data.suggestions.length > 0) {
+          const coverId = data.suggestions[0].cover_i;
+          if (coverId) {
+            imgElement.src = "https://covers.openlibrary.org/b/id/" + coverId + "-L.jpg";
+          }
+        }
+      } catch (err) {
+        console.log("Cover fetch error:", err);
+      }
+    }
+
+    // Top book cover
+const topBookCover = document.getElementById("topBookCover");
+<% if (topBook) { %>
+  loadCoverByTitle(<%- JSON.stringify(topBook.title) %>, topBookCover);
+<% } %>
+
+
+    // Covers for all book cards
+    const coverImgs = document.querySelectorAll(".bookCoverImg");
+    coverImgs.forEach((img) => {
+      const title = img.getAttribute("data-title");
+      loadCoverByTitle(title, img);
+    });
+  </script>
+
+</body>
+</html>

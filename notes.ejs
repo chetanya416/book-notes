@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>View Note</title>
+  <link rel="stylesheet" href="/styles/main.css" />
+</head>
+
+<body class="page">
+
+  <main class="container">
+
+    <a class="back-link" href="/">← Back to Home</a>
+
+    <% if (locals.error) { %>
+      <p class="error-msg"><%= error %></p>
+    <% } %>
+
+    <% if (book) { %>
+
+      <section class="note-view-card">
+
+        <div class="note-view-top">
+          <div class="note-cover">
+            <img
+              src="/images/placeholder-cover.jpg"
+              alt="Book Cover"
+              id="coverImg"
+            />
+          </div>
+
+          <div class="note-info">
+            <h2 class="note-title"><%= book.title %></h2>
+            <p class="note-author">by <%= book.author %></p>
+
+            <p class="note-meta">
+              <span><b>Date Read:</b> <%= book.date_read.toISOString().slice(0, 10) %></span>
+              <span><b>Rating:</b> <%= book.rating %>/10</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="note-content">
+          <h3>Your Note</h3>
+
+          <% if (book.notes && book.notes.trim().length > 0) { %>
+            <p class="note-text"><%= book.notes %></p>
+          <% } else { %>
+            <p class="note-text empty-note">No note written for this book.</p>
+          <% } %>
+        </div>
+
+      </section>
+
+      <section class="edit-card">
+        <h3>Edit Note</h3>
+
+        <form action="/edit/<%= book.id %>" method="post" class="edit-form">
+
+          <label>Rating (1 to 10)</label>
+          <input type="number" name="rating" min="1" max="10" value="<%= book.rating %>" required />
+
+          <label>Note</label>
+          <textarea name="notes" rows="6" placeholder="Edit your note..."><%= book.notes ? book.notes : "" %></textarea>
+
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+
+        <form action="/delete/<%= book.id %>" method="post" class="delete-form">
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this note?')">
+            Delete Note
+          </button>
+        </form>
+      </section>
+
+    <% } %>
+
+  </main>
+
+  <%- include("partials/footer.ejs") %>
+
+  <script>
+    // Optional: try to load OpenLibrary cover dynamically using title search
+    // If it fails, placeholder remains.
+    const title = "<%= book ? book.title.replace(/"/g, '\\"') : "" %>";
+
+    async function tryCover() {
+      try {
+        if (!title) return;
+
+        const res = await fetch("/search?q=" + encodeURIComponent(title));
+        const data = await res.json();
+
+        if (data.suggestions && data.suggestions.length > 0) {
+          const coverId = data.suggestions[0].cover_i;
+          if (coverId) {
+            document.getElementById("coverImg").src =
+              "https://covers.openlibrary.org/b/id/" + coverId + "-L.jpg";
+          }
+        }
+      } catch (err) {
+        console.log("Cover load error:", err);
+      }
+    }
+
+    tryCover();
+  </script>
+
+</body>
+</html>
